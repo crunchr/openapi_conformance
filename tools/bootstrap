@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+pyenv local 3.6.8
+poetry build
+VERSION=$(poetry run python -c "from openapi_conformance import __version__; print(__version__, end='')")
+tar -zxvf dist/openapi_conformance-$VERSION.tar.gz openapi_conformance-$VERSION/setup.py
+mv openapi_conformance-$VERSION/setup.py .
+rm -rf openapi_conformance-$VERSION
+poetry run pip install -e .
+rm setup.py

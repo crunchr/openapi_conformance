@@ -1,0 +1,10 @@
+git config --local filter.format.clean 'tools/format'
+
+HOOK=$(cat tools/hooks/pre-push)
+if grep -Fxq "$HOOK" .git/hooks/pre-push 2>/dev/null
+then
+    echo 'pre-push hook already installed'
+else
+    cat tools/hooks/pre-push >> .git/hooks/pre-push
+fi
+chmod +x .git/hooks/pre-push

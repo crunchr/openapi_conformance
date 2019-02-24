@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+echo "Linting and checking..."
+pyenv local 3.6.8
+poetry run pylama
+poetry run vulture openapi_conformance --min-confidence 100
+poetry run mypy -m openapi_conformance --ignore-missing-imports
+poetry run safety check
