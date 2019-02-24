@@ -2,9 +2,12 @@
 
 set -e
 
-echo "Reformatting..."
-pyenv local 3.6.8
-poetry run isort $(find ./openapi_conformance/*.py -printf "./openapi_conformance/%f ")
-poetry run isort $(find ./tests/*.py -printf "./tests/%f ")
-poetry run black openapi_conformance --line-length 100
-poetry run black tests --line-length 100
+# TODO: Make it so that this also works on a given filename so it
+#  can work as a clean filter
+
+echo "Reformatting $1"
+#pyenv local 3.6.8
+#poetry run isort $(find ./openapi_conformance/*.py -printf "./openapi_conformance/%f ")
+#poetry run isort $(find ./tests/*.py -printf "./tests/%f ")
+#poetry run black openapi_conformance --line-length 100
+#poetry run black tests --line-length 100
