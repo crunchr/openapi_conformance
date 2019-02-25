@@ -1,3 +1,2 @@
 
-tools/check
-tools/test
+tools/check && tools/test

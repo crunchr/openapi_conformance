@@ -20,6 +20,10 @@ pylama = "^7.6"
 eradicate = "^1.0"
 radon = "^3.0"
 vulture = "^1.0"
+flake8-isort = "^2.6"
+
+[tool.black]
+line-length = 100
 
 [build-system]
 requires = ["poetry>=0.12"]
