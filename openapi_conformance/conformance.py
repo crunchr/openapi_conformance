@@ -1,3 +1,6 @@
+# std
+import json
+
 # 3rd party
 from hypothesis import given
 from openapi_core.schema.parameters.enums import ParameterLocation
@@ -93,12 +96,37 @@ class OpenAPIConformance:
             request, response = self._make_request(operation, parameters, body)
             self.check_response_conformance(request, response)
 
-        @given(
-            self.st.parameter_lists(operation.parameters),
-            self.st.schema_values(operation.request_body),
-        )
-        def _hypothesized_request_and_check(parameters, body):
-            _request_and_check(parameters, body)
+        # We cannot use star args with the given decorator, which means
+        # we need to define three seperate functions depending on the
+        # presence of roperation.request_body and operation.parameters
+
+        given_args = []
+        if operation.parameters:
+            strategy = self.st.parameter_lists(operation.parameters)
+            given_args.append(strategy)
+
+        if operation.request_body is not None:
+            schema = operation.request_body.content["application/json"].schema
+            strategy = self.st.schema_values(schema)
+            given_args.append(strategy)
+
+        if operation.request_body and operation.parameters:
+
+            @given(*given_args)
+            def _hypothesized_request_and_check(p, r):
+                _request_and_check(p, r)
+
+        elif operation.parameters:
+
+            @given(*given_args)
+            def _hypothesized_request_and_check(p):
+                _request_and_check(p)
+
+        else:
+
+            @given(*given_args)
+            def _hypothesized_request_and_check(r):
+                _request_and_check(None, r)
 
         is_hypothesized = operation.parameters or operation.request_body
         _hypothesized_request_and_check() if is_hypothesized else _request_and_check()
@@ -147,11 +175,15 @@ class OpenAPIConformance:
             args = {}
             view_args = {}
 
+        # TODO: Use correct mime type
+        data = json.dumps(request_body).encode() if request_body else None
+
         request = MockRequest(
             f"http://host.com/",  # TODO: What to use for URL here?
             operation.http_method,
             path=path,
             args=args,
             view_args=view_args,
+            data=data,
         )
         return request, self.send_request(operation, request)

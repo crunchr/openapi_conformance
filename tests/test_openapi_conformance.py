@@ -17,15 +17,11 @@ DIR = Path(__file__).parent
 st_conformance = Strategies()
 
 
-
 # TODO : Probably useful to test multiple specifications, make this
 #  also part of the parameterization
 conformances = [
     (filename, OpenAPIConformance(DIR / "data" / filename, None))
-    for filename in (
-        "petstore.yaml",
-        "petstore-expanded.yaml",
-    )
+    for filename in ("petstore.yaml", "petstore-expanded.yaml")
 ]
 
 
@@ -40,7 +36,7 @@ filenames_conformances_operations = [
     "filename,conformance,operation",
     filenames_conformances_operations,
     ids=[
-        f'{ filename} : { describe_operation(conformance.specification, operation)}'
+        f"{ filename} : { describe_operation(conformance.specification, operation)}"
         for filename, conformance, operation in filenames_conformances_operations
     ],
 )
@@ -48,7 +44,7 @@ def test_round_trip(filename, conformance, operation):
     """
     Use OpenAPIConformance to generate a request for this operation,
     validate that the request conforms, then generate a response from
-    the request OpenAPIConformance will then check that this conforms.
+    the request OpenAPIConformance will then check that ths conforms.
     """
 
     @given(st.data())
