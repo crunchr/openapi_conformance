@@ -15,21 +15,36 @@ from openapi_conformance.extension import describe_operation
 
 DIR = Path(__file__).parent
 st_conformance = Strategies()
+
+
+
 # TODO : Probably useful to test multiple specifications, make this
 #  also part of the parameterization
-conformance = OpenAPIConformance(DIR / "data" / "petstore.yaml", None)
+conformances = [
+    (filename, OpenAPIConformance(DIR / "data" / filename, None))
+    for filename in (
+        "petstore.yaml",
+        "petstore-expanded.yaml",
+    )
+]
+
+
+filenames_conformances_operations = [
+    (filename, conformance, operation)
+    for filename, conformance in conformances
+    for operation in conformance.operations
+]
 
 
 @pytest.mark.parametrize(
-    "operation",
-    conformance.operations,
+    "filename,conformance,operation",
+    filenames_conformances_operations,
     ids=[
-        describe_operation(conformance.specification, x)
-        for x in conformance.operations
-        if True and False
+        f'{ filename} : { describe_operation(conformance.specification, operation)}'
+        for filename, conformance, operation in filenames_conformances_operations
     ],
 )
-def test_round_trip(operation):
+def test_round_trip(filename, conformance, operation):
     """
     Use OpenAPIConformance to generate a request for this operation,
     validate that the request conforms, then generate a response from
