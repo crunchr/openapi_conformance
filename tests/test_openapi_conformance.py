@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
-from openapi_core.validation.request.validators import RequestValidator
 from openapi_core.wrappers.mock import MockResponse
 
 # openapi_conformance
@@ -18,8 +17,6 @@ DIR = Path(__file__).parent
 st_conformance = Strategies()
 
 
-# TODO : Probably useful to test multiple specifications, make this
-#  also part of the parameterization
 conformances = [
     (entry.name, OpenAPIConformance(DIR / "data" / entry.name, None))
     for entry in os.scandir(DIR / "data")
@@ -51,16 +48,30 @@ def test_round_trip(filename, conformance, operation):
     @given(st.data())
     @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow], max_examples=10)
     def check_conformance(data):
-        def send_request(request, operation, status_code, mime_type, schema):
-            RequestValidator(conformance.specification).validate(request).raise_for_errors()
-            response = data.draw(st_conformance.schema_values(schema.schema))
-            # TODO: Use mimetype to encode this
-            content = json.dumps(response).encode()
+        def generate_response(operation, request):
+            """
+            Generate the response for a given request.
+
+            :param operation: The operation being requested.
+            :param request: The request object.
+
+            :return:
+            """
+            st_responses = st.sampled_from(list(operation.responses.items()))
+            status_code, response_definition = data.draw(st_responses)
             # TODO: Check what 'default' means
             status_code = 500 if status_code == "default" else int(status_code)
+
+            content = b""
+            if response_definition.content:
+                st_contents = st.sampled_from(list(response_definition.content.items()))
+                mime_type, contents = data.draw(st_contents)
+                response = data.draw(st_conformance.schema_values(contents.schema))
+                content = json.dumps(response).encode()  # TODO: Use mimetype to encode this
+
             return MockResponse(content, status_code)
 
-        conformance.send_request = send_request
+        conformance.send_request = generate_response
         conformance.check_operation_conformance(operation)
 
     check_conformance()

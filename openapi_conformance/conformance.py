@@ -4,17 +4,12 @@ import json
 # 3rd party
 from hypothesis import given
 from openapi_core.schema.parameters.enums import ParameterLocation
+from openapi_core.validation.request.validators import RequestValidator
 from openapi_core.validation.response.validators import ResponseValidator
-from openapi_core.wrappers.mock import MockRequest, MockResponse
+from openapi_core.wrappers.mock import MockRequest
 
 # openapi_conformance
-from openapi_conformance.extension import (
-    create_spec,
-    operations,
-    raise_verbose_exception,
-    record_unmarshal,
-    strict_str,
-)
+from openapi_conformance.extension import create_spec, operations, validate
 from openapi_conformance.strategies import Strategies
 
 
@@ -23,7 +18,9 @@ class OpenAPIConformance:
 
     """
 
-    def __init__(self, specification, send_request, format_strategies=None):
+    def __init__(
+        self, specification, send_request, format_strategies=None, format_unmarshallers=None
+    ):
         """
           The actual request is made by the send_request callable,
           which takes the following parameters...
@@ -57,6 +54,7 @@ class OpenAPIConformance:
         self.specification = create_spec(specification)
         self.send_request = send_request
         self.st = Strategies(format_strategies)
+        self.format_unmarshallers = format_unmarshallers
 
     @property
     def operations(self):
@@ -73,15 +71,12 @@ class OpenAPIConformance:
         :param request: openapi_core BaseOpenAPIRequest object
         :param response: openapi_core BaseOpenAPIResponse object
         """
-        # TODO: Custom formatting
-        with record_unmarshal() as log:
-            with strict_str():
-                validator = ResponseValidator(self.specification)
-                result = validator.validate(request, response)
-                try:
-                    result.raise_for_errors()
-                except Exception as e:
-                    raise_verbose_exception(e, log)
+        request_validator, response_validator = (
+            validator_type(self.specification, self.format_unmarshallers)
+            for validator_type in (RequestValidator, ResponseValidator)
+        )
+        validate(request_validator, request)
+        validate(response_validator, request, response)
 
     def check_operation_conformance(self, operation):
         """
@@ -100,8 +95,8 @@ class OpenAPIConformance:
 
         @given(st_parameter_lists, st_schema_values)
         def do_test(parameters, request_body):
-            for request, response in self._make_request(operation, parameters, request_body):
-                self.check_response_conformance(request, response)
+            request, response = self._make_request(operation, parameters, request_body)
+            self.check_response_conformance(request, response)
 
         do_test()
 
@@ -162,12 +157,4 @@ class OpenAPIConformance:
             view_args=view_args,
             data=data,
         )
-
-        for status_code, response in operation.responses.items():
-            if response.content:
-                for mimetype, schema in response.content.items():
-                    yield request, self.send_request(
-                        request, operation, status_code, mimetype, schema
-                    )
-            else:
-                yield request, MockResponse(b"", status_code)
+        return request, self.send_request(operation, request)
