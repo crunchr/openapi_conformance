@@ -160,6 +160,8 @@ class OpenAPIConformance:
         :return: tuple of (BaseOpenAPIRequest, BaseOpenAPIResponse)
         """
         path = self.specification.default_url + operation.path_name
+        slashes = ('/' if x('/') else '' for x in (path.startswith, path.endswith))
+        path = path.strip('/').join(slashes)
 
         # TODO: Other parameter locations
         if parameters:
