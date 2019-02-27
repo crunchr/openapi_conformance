@@ -42,7 +42,7 @@ def _schema_dict(schema):  # noqa
         **({"type": schema.type.value} if schema.type else {}),
         **({"properties": list(schema.properties.keys())} if schema.properties else {}),
         **({"items": schema.items} if schema.items else {}),
-        **({"format": schema.format.value} if schema.format else {}),
+        **({"format": schema.format} if schema.format else {}),
         **({"required": schema.required} if schema.required else {}),
         **({"default": schema.default} if schema.default else {}),
         **({"nullable": schema.nullable}),

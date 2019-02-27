@@ -4,6 +4,7 @@ import operator
 from collections import namedtuple
 from datetime import datetime
 from functools import partial
+from urllib.parse import urlencode
 
 # 3rd party
 from hypothesis import strategies as st
@@ -13,6 +14,7 @@ from toolz import compose, curry, flip, juxt, keyfilter, unique, valmap
 ParameterValue = namedtuple("ParameterValue", "parameter value")
 
 
+# TODO: Add tests
 @st.composite
 def st_filtered_containers(draw, container):
     """
@@ -29,6 +31,57 @@ def st_filtered_containers(draw, container):
     """
     result = draw(st.sets(st.sampled_from(list(container)), max_size=len(container)))
     return type(container)(result)
+
+
+# TODO: Parameterize
+# TODO: Add tests
+@st.composite
+def st_hostnames(draw):
+    """
+
+    :param draw:
+
+    :return:
+    """
+    return st.from_regex(r"(?!-)[a-z0-9-]{1,63}(?<!-)$").filter(lambda x: len(x) < 253)
+
+
+# TODO: Parameterize
+# TODO: Add tests
+# TODO: Query
+# TODO: Fragment
+@st.composite
+def st_uris(draw):
+    """
+
+    :param draw:
+
+    :return:
+    """
+    scheme = draw(st.sampled_from(("ftp", "http", "file", "custom")))
+
+    authority = userinfo = query = fragment = password = port = ""
+
+    if draw(st.booleans()):  # authority
+        if draw(st.booleans()):  # userinfo
+            username = urlencode(draw(st.text()))
+            if draw(st.booleans()):  # password
+                password = ":" + urlencode(draw(st.text()))
+            userinfo = f"{username}{password}"
+        host = draw(st_hostnames())
+        if draw(st.booleans()):  # port
+            port = f":{draw(st.integers(min_value=0, max_value=65535))}"
+        authority = f"//{userinfo}{host}{port}"
+
+    if draw(st.booleans()):  # query
+        pass
+
+    if draw(st.booleans()):  # fragment
+        pass
+
+    path = "/".join(draw(st.lists(st.text().map(urlencode))))
+
+    return f"{scheme}:{authority}{path}{query}{fragment}"
 
 
 class Strategies:
@@ -114,10 +167,19 @@ class Strategies:
         """
         min_max = dict(min_size=schema.min_length, max_size=schema.max_length)
 
+        # TODO: Implement these ipv4 and ipv6
         if schema.format in self.format_strategies:
             strategy = self.format_strategies[schema.format](schema)
         elif schema.enum:
             strategy = st.sampled_from(schema.enum)
+        elif schema.format == "email":
+            strategy = st.emails()
+        elif schema.format == "uuid":
+            strategy = st.uuids()
+        elif schema.format in ("uri", "uriref"):
+            strategy = st_uris()
+        elif schema.format == "hostname":
+            strategy = st_hostnames()
         elif schema.format == "date":
             strategy = st.dates().map(str)
         elif schema.format == "date-time":
