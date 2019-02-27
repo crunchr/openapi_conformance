@@ -1,4 +1,5 @@
 # std
+import os
 import json
 from pathlib import Path
 
@@ -20,8 +21,8 @@ st_conformance = Strategies()
 # TODO : Probably useful to test multiple specifications, make this
 #  also part of the parameterization
 conformances = [
-    (filename, OpenAPIConformance(DIR / "data" / filename, None))
-    for filename in ("petstore.yaml", "petstore-expanded.yaml")
+    (entry.name, OpenAPIConformance(DIR / "data" / entry.name, None))
+    for entry in os.scandir(DIR / "data")
 ]
 
 
