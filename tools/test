@@ -2,7 +2,6 @@
 
 set -e
 
-echo "Testing..."
 pyenv local 3.6.8
 poetry run pytest
 poetry run python3 -m doctest -v ./openapi_conformance/*.py
