@@ -167,27 +167,21 @@ class Strategies:
         """
         min_max = dict(min_size=schema.min_length, max_size=schema.max_length)
 
-        # TODO: Implement these ipv4 and ipv6
-        if schema.format in self.format_strategies:
-            strategy = self.format_strategies[schema.format](schema)
+        if schema.format:
+            strategy = {
+                "email": st.emails(),
+                "uuid": st.uuids().map(str),
+                "uri": st_uris(),
+                "uriref": st_uris(),
+                "hostname": st_hostnames(),
+                "date": st.dates().map(str),
+                "date-time": st.datetimes().map(datetime.isoformat),
+                "binary": st.binary(**min_max),
+                "byte": st.binary(**min_max).map(base64.encodebytes),
+                **self.format_strategies,
+            }[schema.format]
         elif schema.enum:
             strategy = st.sampled_from(schema.enum)
-        elif schema.format == "email":
-            strategy = st.emails()
-        elif schema.format == "uuid":
-            strategy = st.uuids()
-        elif schema.format in ("uri", "uriref"):
-            strategy = st_uris()
-        elif schema.format == "hostname":
-            strategy = st_hostnames()
-        elif schema.format == "date":
-            strategy = st.dates().map(str)
-        elif schema.format == "date-time":
-            strategy = st.datetimes().map(datetime.isoformat)
-        elif schema.format == "binary":
-            strategy = st.binary(**min_max)
-        elif schema.format == "byte":
-            strategy = st.binary(**min_max).map(base64.encodebytes)
         elif schema.pattern:
             strategy = st.from_regex(schema.pattern)
         else:
