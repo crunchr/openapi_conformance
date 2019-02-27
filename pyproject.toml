@@ -21,6 +21,7 @@ eradicate = "^1.0"
 radon = "^3.0"
 vulture = "^1.0"
 flake8-isort = "^2.6"
+pylama_pylint = "^3.1"
 
 [tool.black]
 line-length = 100

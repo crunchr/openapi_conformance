@@ -2,6 +2,5 @@
 
 set -e
 
-pyenv local 3.6.8
 poetry run isort -rc -y -q
 poetry run black .

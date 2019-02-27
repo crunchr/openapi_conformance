@@ -2,8 +2,6 @@
 
 set -e
 
-pyenv local 3.6.8
-
 poetry run isort -rc --check-only -q
 poetry run black . --check --quiet
 poetry run pylama
