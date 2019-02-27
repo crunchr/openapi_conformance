@@ -5,7 +5,7 @@ import json
 from hypothesis import given
 from openapi_core.schema.parameters.enums import ParameterLocation
 from openapi_core.validation.response.validators import ResponseValidator
-from openapi_core.wrappers.mock import MockRequest
+from openapi_core.wrappers.mock import MockRequest, MockResponse
 
 # openapi_conformance
 from openapi_conformance.extension import (
@@ -93,8 +93,12 @@ class OpenAPIConformance:
         """
 
         def _request_and_check(parameters=None, body=None):
-            request, response = self._make_request(operation, parameters, body)
-            self.check_response_conformance(request, response)
+            responses = list(self._make_request(operation, parameters, body))
+            if responses:
+                for request, response in self._make_request(operation, parameters, body):
+                    self.check_response_conformance(request, response)
+            else:
+                pass  # check we actually expected an empty response
 
         # We cannot use star args with the given decorator, which means
         # we need to define three seperate functions depending on the
@@ -160,8 +164,8 @@ class OpenAPIConformance:
         :return: tuple of (BaseOpenAPIRequest, BaseOpenAPIResponse)
         """
         path = self.specification.default_url + operation.path_name
-        slashes = ('/' if x('/') else '' for x in (path.startswith, path.endswith))
-        path = path.strip('/').join(slashes)
+        slashes = ("/" if x("/") else "" for x in (path.startswith, path.endswith))
+        path = path.strip("/").join(slashes)
 
         # TODO: Other parameter locations
         if parameters:
@@ -188,4 +192,12 @@ class OpenAPIConformance:
             view_args=view_args,
             data=data,
         )
-        return request, self.send_request(operation, request)
+
+        for status_code, response in operation.responses.items():
+            if response.content:
+                for mimetype, schema in response.content.items():
+                    yield request, self.send_request(
+                        request, operation, status_code, mimetype, schema
+                    )
+            else:
+                yield request, MockResponse(b"", status_code)

@@ -1,6 +1,6 @@
 # std
-import os
 import json
+import os
 from pathlib import Path
 
 # 3rd party
@@ -51,16 +51,14 @@ def test_round_trip(filename, conformance, operation):
     @given(st.data())
     @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow], max_examples=10)
     def check_conformance(data):
-        def send_request(operation, request):
+        def send_request(request, operation, status_code, mime_type, schema):
             RequestValidator(conformance.specification).validate(request).raise_for_errors()
-            for status_code, response in operation.responses.items():
-                for mimetype, schema in response.content.items():
-                    response = data.draw(st_conformance.schema_values(schema.schema))
-                    # TODO: Use mimetype to encode this
-                    content = json.dumps(response).encode()
-                    # TODO: Check what 'default' means
-                    status_code = 500 if status_code == "default" else int(status_code)
-                    return MockResponse(content, status_code)
+            response = data.draw(st_conformance.schema_values(schema.schema))
+            # TODO: Use mimetype to encode this
+            content = json.dumps(response).encode()
+            # TODO: Check what 'default' means
+            status_code = 500 if status_code == "default" else int(status_code)
+            return MockResponse(content, status_code)
 
         conformance.send_request = send_request
         conformance.check_operation_conformance(operation)
