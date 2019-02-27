@@ -33,7 +33,7 @@ def st_filtered_containers(draw, container):
     return type(container)(result)
 
 
-# TODO: Parameterize
+# TODO: Parameterize this strategy
 # TODO: Add tests
 @st.composite
 def st_hostnames(draw):
@@ -46,10 +46,6 @@ def st_hostnames(draw):
     return st.from_regex(r"(?!-)[a-z0-9-]{1,63}(?<!-)$").filter(lambda x: len(x) < 253)
 
 
-# TODO: Parameterize
-# TODO: Add tests
-# TODO: Query
-# TODO: Fragment
 @st.composite
 def st_uris(draw):
     """
@@ -58,6 +54,10 @@ def st_uris(draw):
 
     :return:
     """
+    # TODO: Parameterize this strategy
+    # TODO: Add tests
+    # TODO: Url encode Query
+    # TODO: urlencode Fragment
     scheme = draw(st.sampled_from(("ftp", "http", "file", "custom")))
 
     authority = userinfo = query = fragment = password = port = ""

@@ -91,49 +91,19 @@ class OpenAPIConformance:
 
         :param operation: openapi_core Operation object
         """
-
-        def _request_and_check(parameters=None, body=None):
-            responses = list(self._make_request(operation, parameters, body))
-            if responses:
-                for request, response in self._make_request(operation, parameters, body):
-                    self.check_response_conformance(request, response)
-            else:
-                pass  # check we actually expected an empty response
-
-        # We cannot use star args with the given decorator, which means
-        # we need to define three seperate functions depending on the
-        # presence of roperation.request_body and operation.parameters
-
-        given_args = []
-        if operation.parameters:
-            strategy = self.st.parameter_lists(operation.parameters)
-            given_args.append(strategy)
-
-        if operation.request_body is not None:
+        st_parameter_lists = self.st.parameter_lists(operation.parameters)
+        if operation.request_body:
             schema = operation.request_body.content["application/json"].schema
-            strategy = self.st.schema_values(schema)
-            given_args.append(strategy)
-
-        if operation.request_body and operation.parameters:
-
-            @given(*given_args)
-            def _hypothesized_request_and_check(p, r):
-                _request_and_check(p, r)
-
-        elif operation.parameters:
-
-            @given(*given_args)
-            def _hypothesized_request_and_check(p):
-                _request_and_check(p)
-
         else:
+            schema = None
+        st_schema_values = self.st.schema_values(schema)
 
-            @given(*given_args)
-            def _hypothesized_request_and_check(r):
-                _request_and_check(None, r)
+        @given(st_parameter_lists, st_schema_values)
+        def do_test(parameters, request_body):
+            for request, response in self._make_request(operation, parameters, request_body):
+                self.check_response_conformance(request, response)
 
-        is_hypothesized = operation.parameters or operation.request_body
-        _hypothesized_request_and_check() if is_hypothesized else _request_and_check()
+        do_test()
 
     def check_specification_conformance(self):
         """
