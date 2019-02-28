@@ -129,30 +129,6 @@ def record_unmarshal():
         yield log
 
 
-def raise_verbose_exception(e, log):
-    """
-    Create a new exception with additional information about which
-    value and schema failed (or if the failure didn't occur because of
-    an incorrect value the last successfully parsed value and schema)
-    because the openapi_core error messages can be a little cryptic.
-
-    :param e: Original exception.
-    :param log: Log of the calls to unmarshal.
-    """
-    if log:
-        schema, value = _schema_dict(log[-1].schema), log[-1].value
-        if log[-1].success:
-            msg = (
-                f"Response does not conform to schema, the last successfully "
-                f"unmarshalled schema was {schema} with value {value}."
-            )
-        else:
-            msg = f"{value} does not conform to the schema {schema}."
-        raise type(e)(msg) from e
-    else:
-        raise e
-
-
 CREATE_SPEC_SUPPORTED_TYPES = Path, str, IO, dict, Spec
 
 
@@ -267,4 +243,5 @@ def validate(validator, *args):
             try:
                 result.raise_for_errors()
             except Exception as e:
-                raise_verbose_exception(e, log)
+                e.unmarshal_log = log
+                raise e
