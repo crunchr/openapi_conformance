@@ -99,8 +99,8 @@ def instance_composite(fn):
 
         >>> class Strategies:
         ...   @instance_composite
-        ...     def things(self, draw):
-        ...        pass
+        ...   def things(self, draw):
+        ...     pass
 
     :param fn: The function to convert to an instance composite
                strategy.
