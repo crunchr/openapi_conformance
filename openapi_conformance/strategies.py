@@ -1,12 +1,15 @@
 # std
 import base64
+import inspect
 import operator
+import types
 from collections import namedtuple
 from datetime import datetime
 from functools import partial
 from urllib.parse import urlencode
 
 # 3rd party
+import wrapt
 from hypothesis import strategies as st
 from openapi_core.schema.schemas.enums import SchemaType
 from toolz import compose, curry, flip, juxt, keyfilter, unique, valmap
@@ -77,6 +80,40 @@ def st_uris(draw):
     return f"{scheme}:{authority}{path}{query}{fragment}"
 
 
+def instance_composite(fn):
+    """
+    Wrapper around st.composite that can be used on instance methods.
+
+    When using st.composite decorator on an instance methods hypothesis
+    flips the self and draw parameters, meaning you have to define your
+    composite strategies like so...
+
+        >>> class Strategies:
+        ...   @st.composite
+        ...   def things(draw, self):
+        ...      pass
+
+    Which is quite unusual. With this decorator we ensure that we can
+    define our instance methods in the usual way, e.g.
+
+        >>> class Strategies:
+        ...   @instance_composite
+        ...     def things(self, draw):
+        ...        pass
+
+    :param fn: The function to convert to an instance composite
+               strategy.
+
+    :return: Decorated function.
+    """
+
+    @st.composite
+    def inner(*args, **kwargs):
+        return fn(args[1], args[0], *args[2:], **kwargs)
+
+    return inner
+
+
 class Strategies:
     """
     Various strategies for generating values that are part of an open
@@ -113,8 +150,8 @@ class Strategies:
             SchemaType.OBJECT: self.objects,
         }[schema.type](schema=schema)
 
-    @st.composite
-    def numbers(draw, self, st_base, schema):
+    @instance_composite
+    def numbers(self, draw, st_base, schema):
         """
         Generate a number that conforms to the given schema.
 
@@ -148,8 +185,8 @@ class Strategies:
 
         return draw(numbers)
 
-    @st.composite
-    def strings(draw, self, schema):
+    @instance_composite
+    def strings(self, draw, schema):
         """
         Generate some text that conforms to the given schema.
 
@@ -182,8 +219,8 @@ class Strategies:
 
         return draw(strategy)
 
-    @st.composite
-    def arrays(draw, self, schema):
+    @instance_composite
+    def arrays(self, draw, schema):
         """
         Generate an array of other schema values that conform to the
         items schema.
@@ -203,8 +240,8 @@ class Strategies:
         )
         return unique(items) if schema.unique_items else items
 
-    @st.composite
-    def objects(draw, self, schema):
+    @instance_composite
+    def objects(self, draw, schema):
         """
         Generate an object which conforms to the given schema.
 
@@ -230,8 +267,8 @@ class Strategies:
 
         return result
 
-    @st.composite
-    def schema_values(draw, self, schema):
+    @instance_composite
+    def schema_values(self, draw, schema):
         """
         Generate a value which conforms to the given schema.
 
@@ -243,8 +280,8 @@ class Strategies:
         if schema:
             return draw(self._strategy_for_schema(schema))
 
-    @st.composite
-    def parameter_lists(draw, self, parameters):
+    @instance_composite
+    def parameter_lists(self, draw, parameters):
         """
         Generate a list of parameters to send to a particular endpoint.
 
