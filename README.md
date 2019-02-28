@@ -1,9 +1,9 @@
 # OpenAPI conformance
 
-A tool for validating an OpenAPI specification 
+A tool for validating an [OpenAPI 3.0](https://swagger.io/docs/specification/about/) specification 
 against an implementation.
 
-The main idea is to generate multiple requests (with parameters and request body being generated using [hypothesis]() according to the schemas defined in the specification) for the operations, passing these to the supplied``send_request`` function which is responsible for sending the request and returning the response, which in turn is validated against the specification using [openapi_core](). When an unexpected response occurs an exception is raised.
+The main idea is to generate multiple requests (with parameters and request body being generated using [hypothesis](https://hypothesis.works) according to the schemas defined in the specification) for the operations, passing these to the supplied``send_request`` function which is responsible for sending the request and returning the response, which in turn is validated against the specification using [openapi_core](https://github.com/p1c2u/openapi-core). When an unexpected response occurs an exception is raised.
 
 ## Motivation
 
@@ -18,7 +18,7 @@ $ poetry add openapi_conformance
 
 ## Usage
 
-The main thing that is required in order to use is to supply a ``send_request`` function which translates a request object to an actual request to the implementation being tested. For example one might invoke an actualy http request using [requests](), or as in the following example use the [django]() test client to send requests as part of your django tests.
+The main thing that is required in order to use is to supply a ``send_request`` function which translates a request object to an actual request to the implementation being tested. For example one might invoke an actualy http request using [requests](http://docs.python-requests.org/en/master/), or as in the following example use the [django](https://www.djangoproject.com/) test client to send requests as part of your django tests.
 
 ```python
 from openapi_core.wrappers.mock import MockResponse
