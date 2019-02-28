@@ -12,9 +12,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import IO
 from unittest.mock import patch
+from urllib.parse import unquote_plus
 
 # 3rd party
 from jsonschema.validators import RefResolver
+from openapi_core.schema.media_types.models import MEDIA_TYPE_DESERIALIZERS
 from openapi_core.schema.schemas.enums import SchemaFormat, SchemaType
 from openapi_core.schema.schemas.exceptions import InvalidSchemaValue, OpenAPISchemaError
 from openapi_core.schema.schemas.models import Format, Schema
@@ -240,12 +242,13 @@ def validate(validator, *args):
     with record_unmarshal() as log:
         with strict_str():
             with patch_schema_validate():
-                result = validator.validate(*args)
-                try:
-                    result.raise_for_errors()
-                except Exception as e:
-                    e.unmarshal_log = log
-                    raise e
+                with patch_media_type_deserializers():
+                    result = validator.validate(*args)
+                    try:
+                        result.raise_for_errors()
+                    except Exception as e:
+                        e.unmarshal_log = log
+                        raise e
 
 
 @contextlib.contextmanager
@@ -284,4 +287,23 @@ def patch_schema_validate():
 
     target = "openapi_core.schema.schemas.models.Schema.validate"
     with patch(target, validate):
+        yield
+
+
+@contextlib.contextmanager
+def patch_media_type_deserializers():
+    """
+    Patch MEDIA_TYPE_DESERIALIZERS to provide a custom deserializer
+    for application/x-www-form-urlencoded, perhaps there should be a
+    nice way to provide custom deserializers in openapi_cor
+    """
+
+    def urldecode(qs):
+        return dict(map(unquote_plus, x.split("=")) for x in qs.decode().split("&"))
+
+    patched = dict(MEDIA_TYPE_DESERIALIZERS)
+    patched["application/x-www-form-urlencoded"] = urldecode
+
+    target = "openapi_core.schema.media_types.models.MEDIA_TYPE_DESERIALIZERS"
+    with patch(target, patched):
         yield

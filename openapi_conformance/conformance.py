@@ -1,8 +1,10 @@
 # std
 import json
+from urllib.parse import urlencode
 
 # 3rd party
 from hypothesis import given
+from hypothesis import strategies as st
 from openapi_core.schema.parameters.enums import ParameterLocation
 from openapi_core.validation.request.validators import RequestValidator
 from openapi_core.validation.response.validators import ResponseValidator
@@ -19,7 +21,12 @@ class OpenAPIConformance:
     """
 
     def __init__(
-        self, specification, send_request, format_strategies=None, format_unmarshallers=None
+        self,
+        specification,
+        send_request,
+        format_strategies=None,
+        format_unmarshallers=None,
+        mime_type_decoders=None,
     ):
         """
           The actual request is made by the send_request callable,
@@ -50,11 +57,22 @@ class OpenAPIConformance:
         :param format_strategies: dictionary with strategies for various
                                   formats to provide custom data
                                   generation.
+        :param format_unmarshallers: dictionary with callables which can
+                                     be used to unmarshal values when a
+                                     custom format is given. The key
+                                     should be the format name, with the
+                                     value being an openapi_core.schema.schemas.models.Format
+                                     object.
         """
         self.specification = create_spec(specification)
         self.send_request = send_request
         self.st = Strategies(format_strategies)
         self.format_unmarshallers = format_unmarshallers
+        self.mime_type_decoders = {
+            "application/json": lambda data: json.dumps(data).encode(),
+            "application/x-www-form-urlencoded": lambda data: urlencode(data).encode(),
+            **(mime_type_decoders or {}),
+        }
 
     @property
     def operations(self):
@@ -86,16 +104,25 @@ class OpenAPIConformance:
 
         :param operation: openapi_core Operation object
         """
-        st_parameter_lists = self.st.parameter_lists(operation.parameters)
-        if operation.request_body:
-            schema = operation.request_body.content["application/json"].schema
-        else:
-            schema = None
-        st_schema_values = self.st.schema_values(schema)
 
-        @given(st_parameter_lists, st_schema_values)
-        def do_test(parameters, request_body):
-            request, response = self._make_request(operation, parameters, request_body)
+        @given(st.data())
+        def do_test(data):
+
+            if operation.parameters:
+                parameters = data.draw(self.st.parameter_lists(operation.parameters))
+            else:
+                parameters = None
+
+            if operation.request_body:
+                mime_type, content = data.draw(
+                    st.sampled_from(list(operation.request_body.content.items()))
+                )
+                request_body = data.draw(self.st.schema_values(content.schema))
+            else:
+                mime_type = "application/json"
+                request_body = None
+
+            request, response = self._make_request(operation, parameters, request_body, mime_type)
             self.check_response(request, response)
 
         do_test()
@@ -114,7 +141,9 @@ class OpenAPIConformance:
         for operation in self.operations:
             self.check_operation(operation)
 
-    def _make_request(self, operation, parameters=None, request_body=None):
+    def _make_request(
+        self, operation, parameters=None, request_body=None, mime_type="application/json"
+    ):
         """
         Make a request to an implementation of operation in the given
         OpenAPI specification.
@@ -124,7 +153,8 @@ class OpenAPIConformance:
 
         :param operation: openapi_core Operation object.
         :param parameters: openapi_core Parameters object.
-        :param request_body: data to send in the request body
+        :param request_body: data to send in the request body.
+        :param mime_type: the mime type of the request body.
 
         :return: tuple of (BaseOpenAPIRequest, BaseOpenAPIResponse)
         """
@@ -144,7 +174,10 @@ class OpenAPIConformance:
             args = {}
             view_args = {}
 
-        data = json.dumps(request_body).encode() if request_body else None
+        if request_body is not None:
+            data = self.mime_type_decoders[mime_type](request_body)
+        else:
+            data = b""
 
         request = MockRequest(
             f"http://host.com/",
@@ -153,5 +186,6 @@ class OpenAPIConformance:
             args=args,
             view_args=view_args,
             data=data,
+            mimetype=mime_type,
         )
         return request, self.send_request(operation, request)
