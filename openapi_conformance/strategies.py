@@ -4,7 +4,7 @@ import operator
 from collections import namedtuple
 from datetime import datetime
 from functools import partial
-from urllib.parse import urlencode
+from urllib.parse import quote_plus
 
 # 3rd party
 from hypothesis import strategies as st
@@ -40,7 +40,9 @@ def st_hostnames(draw):
 
     :return:
     """
-    return st.from_regex(r"(?!-)[a-z0-9-]{1,63}(?<!-)$").filter(lambda x: len(x) < 253)
+    return draw(
+        st.from_regex(r"(?!-)[a-z0-9-]{1,63}(?<!-)$").filter(lambda x: len(x) and len(x) < 253)
+    )
 
 
 @st.composite
@@ -53,18 +55,17 @@ def st_uris(draw):
     """
     scheme = draw(st.sampled_from(("ftp", "http", "file", "custom")))
 
-    authority = userinfo = query = fragment = password = port = ""
+    userinfo = query = fragment = password = port = ""
 
-    if draw(st.booleans()):  # authority
-        if draw(st.booleans()):  # userinfo
-            username = urlencode(draw(st.text()))
-            if draw(st.booleans()):  # password
-                password = ":" + urlencode(draw(st.text()))
-            userinfo = f"{username}{password}"
-        host = draw(st_hostnames())
-        if draw(st.booleans()):  # port
-            port = f":{draw(st.integers(min_value=0, max_value=65535))}"
-        authority = f"//{userinfo}{host}{port}"
+    if draw(st.booleans()):  # userinfo
+        username = quote_plus(draw(st.text()))
+        if draw(st.booleans()):  # password
+            password = ":" + quote_plus(draw(st.text()))
+        userinfo = f"{username}{password}"
+    host = draw(st_hostnames())
+    if draw(st.booleans()):  # port
+        port = f":{draw(st.integers(min_value=0, max_value=65535))}"
+    authority = f"//{userinfo}{host}{port}"
 
     if draw(st.booleans()):  # query
         pass
@@ -72,7 +73,10 @@ def st_uris(draw):
     if draw(st.booleans()):  # fragment
         pass
 
-    path = "/".join(draw(st.lists(st.text().map(urlencode))))
+    st_path_part = st.text(min_size=1).map(quote_plus)
+    st_path_parts = st.lists(st_path_part, min_size=1)
+    path_parts = draw(st_path_parts)
+    path = "/".join(path_parts)
 
     return f"{scheme}:{authority}{path}{query}{fragment}"
 

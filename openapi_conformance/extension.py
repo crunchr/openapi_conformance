@@ -16,7 +16,7 @@ from unittest.mock import patch
 # 3rd party
 from jsonschema.validators import RefResolver
 from openapi_core.schema.schemas.enums import SchemaFormat, SchemaType
-from openapi_core.schema.schemas.exceptions import OpenAPISchemaError
+from openapi_core.schema.schemas.exceptions import InvalidSchemaValue, OpenAPISchemaError
 from openapi_core.schema.schemas.models import Format, Schema
 from openapi_core.schema.schemas.registries import SchemaRegistry
 from openapi_core.schema.specs.factories import SpecFactory
@@ -239,9 +239,49 @@ def validate(validator, *args):
     """
     with record_unmarshal() as log:
         with strict_str():
-            result = validator.validate(*args)
-            try:
-                result.raise_for_errors()
-            except Exception as e:
-                e.unmarshal_log = log
-                raise e
+            with patch_schema_validate():
+                result = validator.validate(*args)
+                try:
+                    result.raise_for_errors()
+                except Exception as e:
+                    e.unmarshal_log = log
+                    raise e
+
+
+@contextlib.contextmanager
+def patch_schema_validate():
+    """
+    Patch Schema.validate to ensure that validation doesn't fail when
+    we specify a custom format.
+
+    openapi_core validation is a bit too strict when a custom format
+    is specified. Basically our custom format unmarshals the value to
+    the custom format we specify, however the validate function
+    proceeds to check that the returned type of our custom unmarshal
+    function is the correct type for the schema. However when
+    specifying a custom format all bets should be off regarding types
+    and we should just let the custom format determine if the value
+    is valid or not.
+    """
+
+    def validate(self, value, custom_formatters=None):
+        if value is None:
+            if not self.nullable:
+                raise InvalidSchemaValue(
+                    "Null value for non-nullable schema of type {type}", value, self.type
+                )
+            return
+
+        # type validation
+        type_validator_callable = self.TYPE_VALIDATOR_CALLABLE_GETTER[self.type]
+        if not type_validator_callable(value) and self.format not in custom_formatters:
+            raise InvalidSchemaValue("Value {value} not valid type {type}", value, self.type.value)
+
+        # structure validation
+        validator_mapping = self.get_validator_mapping()
+        validator_callable = validator_mapping[self.type]
+        validator_callable(value, custom_formatters=custom_formatters)
+
+    target = "openapi_core.schema.schemas.models.Schema.validate"
+    with patch(target, validate):
+        yield

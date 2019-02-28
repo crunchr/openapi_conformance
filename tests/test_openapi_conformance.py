@@ -2,12 +2,16 @@
 import json
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 # 3rd party
 import pytest
+import validators
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+from openapi_core.schema.schemas.models import Format
 from openapi_core.wrappers.mock import MockResponse
+from toolz import identity
 
 # openapi_conformance
 from openapi_conformance import OpenAPIConformance, Strategies
@@ -17,8 +21,23 @@ DIR = Path(__file__).parent
 st_conformance = Strategies()
 
 
+def always_valid(x):
+    return True
+
+
+format_unmarshallers = {
+    "uri": Format(urlparse, always_valid),
+    "uriref": Format(urlparse, always_valid),
+}
+
+
 conformances = [
-    (entry.name, OpenAPIConformance(DIR / "data" / entry.name, None))
+    (
+        entry.name,
+        OpenAPIConformance(
+            DIR / "data" / entry.name, None, format_unmarshallers=format_unmarshallers
+        ),
+    )
     for entry in os.scandir(DIR / "data")
 ]
 
