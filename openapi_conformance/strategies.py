@@ -14,7 +14,6 @@ from toolz import compose, curry, flip, juxt, keyfilter, unique, valmap
 ParameterValue = namedtuple("ParameterValue", "parameter value")
 
 
-# TODO: Add tests
 @st.composite
 def st_filtered_containers(draw, container):
     """
@@ -33,8 +32,6 @@ def st_filtered_containers(draw, container):
     return type(container)(result)
 
 
-# TODO: Parameterize this strategy
-# TODO: Add tests
 @st.composite
 def st_hostnames(draw):
     """
@@ -54,10 +51,6 @@ def st_uris(draw):
 
     :return:
     """
-    # TODO: Parameterize this strategy
-    # TODO: Add tests
-    # TODO: Url encode Query
-    # TODO: urlencode Fragment
     scheme = draw(st.sampled_from(("ftp", "http", "file", "custom")))
 
     authority = userinfo = query = fragment = password = port = ""

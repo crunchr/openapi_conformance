@@ -132,12 +132,10 @@ class OpenAPIConformance:
         slashes = ("/" if x("/") else "" for x in (path.startswith, path.endswith))
         path = path.strip("/").join(slashes)
 
-        # TODO: Other parameter locations
         if parameters:
             view_args = {}
             args = {}
             for parameter, value in parameters:
-                # TODO: Formatting of parameter values
                 if parameter.location == ParameterLocation.PATH:
                     view_args[parameter.name] = value
                 elif parameter.location == ParameterLocation.QUERY:
@@ -146,11 +144,10 @@ class OpenAPIConformance:
             args = {}
             view_args = {}
 
-        # TODO: Use correct mime type
         data = json.dumps(request_body).encode() if request_body else None
 
         request = MockRequest(
-            f"http://host.com/",  # TODO: What to use for URL here?
+            f"http://host.com/",
             operation.http_method,
             path=path,
             args=args,
