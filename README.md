@@ -31,7 +31,7 @@ class OpenAPIConformanceTestCase(TestCase):
     def test_conformance(self):
 
         client = Client()
-        client.login(**user_credentials)
+        client.login(username='john@doe.com', password='1234')
         
         def send_request(operation, request):
             path = request.path.format(**request.parameters["path"])
@@ -39,7 +39,7 @@ class OpenAPIConformanceTestCase(TestCase):
             return MockResponse(response.content, response.status_code)
         
         openapi_conformance = OpenAPIConformance("petstore.yaml", send_request)
-        openapi_conformance.check_specification_conformance()
+        openapi_conformance.check()
 ```
 
 ## Contributing

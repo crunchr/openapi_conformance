@@ -1,15 +1,12 @@
 # std
 import base64
-import inspect
 import operator
-import types
 from collections import namedtuple
 from datetime import datetime
 from functools import partial
 from urllib.parse import urlencode
 
 # 3rd party
-import wrapt
 from hypothesis import strategies as st
 from openapi_core.schema.schemas.enums import SchemaType
 from toolz import compose, curry, flip, juxt, keyfilter, unique, valmap

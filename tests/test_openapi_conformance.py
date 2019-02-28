@@ -47,7 +47,7 @@ def test_round_trip(filename, conformance, operation):
 
     @given(st.data())
     @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow], max_examples=10)
-    def check_conformance(data):
+    def check(data):
         def generate_response(operation, request):
             """
             Generate the response for a given request.
@@ -59,7 +59,6 @@ def test_round_trip(filename, conformance, operation):
             """
             st_responses = st.sampled_from(list(operation.responses.items()))
             status_code, response_definition = data.draw(st_responses)
-            # TODO: Check what 'default' means
             status_code = 500 if status_code == "default" else int(status_code)
 
             content = b""
@@ -67,11 +66,11 @@ def test_round_trip(filename, conformance, operation):
                 st_contents = st.sampled_from(list(response_definition.content.items()))
                 mime_type, contents = data.draw(st_contents)
                 response = data.draw(st_conformance.schema_values(contents.schema))
-                content = json.dumps(response).encode()  # TODO: Use mimetype to encode this
+                content = json.dumps(response).encode()
 
             return MockResponse(content, status_code)
 
         conformance.send_request = generate_response
-        conformance.check_operation_conformance(operation)
+        conformance.check_operation(operation)
 
-    check_conformance()
+    check()

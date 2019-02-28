@@ -63,7 +63,7 @@ class OpenAPIConformance:
         """
         return operations(self.specification)
 
-    def check_response_conformance(self, request, response):
+    def check_response(self, request, response):
         """
         Check that a given response conforms to the specified valid
         responses.
@@ -78,7 +78,7 @@ class OpenAPIConformance:
         validate(request_validator, request)
         validate(response_validator, request, response)
 
-    def check_operation_conformance(self, operation):
+    def check_operation(self, operation):
         """
         Check that the implementation of a given operation conforms to
         the specification. If the implementation doesn't conform to the
@@ -96,11 +96,11 @@ class OpenAPIConformance:
         @given(st_parameter_lists, st_schema_values)
         def do_test(parameters, request_body):
             request, response = self._make_request(operation, parameters, request_body)
-            self.check_response_conformance(request, response)
+            self.check_response(request, response)
 
         do_test()
 
-    def check_specification_conformance(self):
+    def check(self):
         """
         Check that an implementation conforms to the given
         specification.
@@ -112,7 +112,7 @@ class OpenAPIConformance:
         :param send_request: Callable to invoke the implementation.
         """
         for operation in self.operations:
-            self.check_operation_conformance(operation)
+            self.check_operation(operation)
 
     def _make_request(self, operation, parameters=None, request_body=None):
         """
