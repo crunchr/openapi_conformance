@@ -196,7 +196,7 @@ class Strategies:
 
         :return: str which conforms to the given schema.
         """
-        min_max = dict(min_size=schema.min_length, max_size=schema.max_length)
+        min_max = dict(min_size=schema.min_length or 0, max_size=schema.max_length)
 
         if schema.format:
             strategy = {
@@ -235,7 +235,7 @@ class Strategies:
         items = draw(
             st.lists(
                 self._strategy_for_schema(schema.items),
-                min_size=schema.min_items,
+                min_size=schema.min_items or 0,
                 max_size=schema.max_items,
             )
         )
