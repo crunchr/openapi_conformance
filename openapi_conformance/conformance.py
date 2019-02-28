@@ -29,8 +29,8 @@ class OpenAPIConformance:
         mime_type_decoders=None,
     ):
         """
-          The actual request is made by the send_request callable,
-          which takes the following parameters...
+        The actual request is made by the send_request callable,
+        which takes the following parameters...
 
         :param specification: Specification to check conformance for,
                               or file or path where the specification

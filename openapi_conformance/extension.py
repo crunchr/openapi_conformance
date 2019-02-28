@@ -301,8 +301,10 @@ def patch_media_type_deserializers():
     def urldecode(qs):
         return dict(map(unquote_plus, x.split("=")) for x in qs.decode().split("&"))
 
-    patched = dict(MEDIA_TYPE_DESERIALIZERS)
-    patched["application/x-www-form-urlencoded"] = urldecode
+    patched = {
+        **MEDIA_TYPE_DESERIALIZERS,
+        "application/x-www-form-urlencoded": urldecode,
+    }
 
     target = "openapi_core.schema.media_types.models.MEDIA_TYPE_DESERIALIZERS"
     with patch(target, patched):
