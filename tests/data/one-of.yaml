@@ -7,15 +7,13 @@ paths:
     get:
       parameters:
         - name: username
-          in: path
+          in: query
           required: true
           schema:
-            type: integer
-            minimum: 0
-            maximum: 10
-            multipleOf: 1
-            exclusiveMinimum: true
-            exclusiveMaximum: true
+            oneOf:
+              - type: integer
+              - type: string
+                minLength: 1
       responses:
         '200':
           description: success

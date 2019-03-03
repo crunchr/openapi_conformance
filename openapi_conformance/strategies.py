@@ -1,6 +1,5 @@
 # std
 import base64
-import operator
 from collections import namedtuple
 from datetime import datetime
 from functools import partial
@@ -9,7 +8,7 @@ from urllib.parse import quote_plus
 # 3rd party
 from hypothesis import strategies as st
 from openapi_core.schema.schemas.enums import SchemaType
-from toolz import compose, curry, flip, juxt, keyfilter, unique, valmap
+from toolz import curry, keyfilter, unique, valmap
 
 ParameterValue = namedtuple("ParameterValue", "parameter value")
 
@@ -135,14 +134,14 @@ class Strategies:
     def _strategy_for_schema(self, schema):
         """
         Get the hypothesis strategy which can be used to generate values for
-        the given schema.
+        the given schema.`
 
         :param schema: openapi_core Schema to generate values for.
 
         :return: Hypothesis strategy that generates values for schema.
         """
         return {
-            SchemaType.ANY: lambda *_, **__: st.just({}),
+            SchemaType.ANY: self.objects,
             SchemaType.INTEGER: partial(self.numbers, st_base=st.integers),
             SchemaType.NUMBER: partial(self.numbers, st_base=st.floats),
             SchemaType.STRING: self.strings,
@@ -150,6 +149,46 @@ class Strategies:
             SchemaType.ARRAY: self.arrays,
             SchemaType.OBJECT: self.objects,
         }[schema.type](schema=schema)
+
+    @classmethod
+    def is_multiple_of(cls, multiple_of):
+        """
+
+        :param multiple_of:
+        :return:
+        """
+        @curry
+        def is_multiple_of(n, x):
+            return not (x % n)
+        return is_multiple_of(multiple_of)
+
+    @classmethod
+    def minimum(cls, value, exclusive):
+        """
+
+        :param value:
+        :param exclusive:
+        :param data_type:
+
+        :return:
+        """
+        epsilon = 1
+        make_exclusive = epsilon if exclusive else 0
+        return (value or 0) + make_exclusive
+
+    @classmethod
+    def maximum(cls, value, exclusive):
+        """
+
+        :param value:
+        :param exclusive:
+        :param data_type:
+
+        :return:
+        """
+        epsilon = 1
+        make_exclusive = epsilon if exclusive else 0
+        return None if value is None else (value - make_exclusive)
 
     @instance_composite
     def numbers(self, draw, st_base, schema):
@@ -167,22 +206,12 @@ class Strategies:
         if schema.format in self.format_strategies:
             numbers = self.format_strategies[schema.format](schema)
         else:
-            numbers = st_base(min_value=schema.minimum, max_value=schema.maximum)
-
-            def if_(x, then):
-                return [then] if x else []
-
-            is_not_equal_to = curry(operator.ne)
-            is_multiple_of = compose(operator.not_, curry(flip(operator.mod)))  # not(x % y)
-
-            filters = (
-                *if_(schema.exclusive_minimum, then=is_not_equal_to(schema.minimum)),
-                *if_(schema.exclusive_maximum, then=is_not_equal_to(schema.maximum)),
-                *if_(schema.multiple_of is not None, then=is_multiple_of(schema.multiple_of)),
+            numbers = st_base(
+                self.minimum(schema.minimum, schema.exclusive_minimum),
+                self.maximum(schema.maximum, schema.exclusive_maximum),
             )
-
-            if filters:
-                numbers = numbers.filter(compose(all, juxt(filters)))
+            if schema.multiple_of:
+                numbers = numbers.filter(self.is_multiple_of(schema.multiple_of))
 
         return draw(numbers)
 
@@ -253,8 +282,6 @@ class Strategies:
         """
         if schema.format in self.format_strategies:
             result = draw(self.format_strategies[schema.format](schema))
-        elif schema.one_of:
-            result = draw(st.one_of(map(self._strategy_for_schema, schema.one_of)))
         else:
             result = {}
             for schema in schema.all_of or [schema]:
@@ -279,7 +306,10 @@ class Strategies:
         :return: A value which conforms to the given schema.
         """
         if schema:
-            return draw(self._strategy_for_schema(schema))
+            if schema.one_of:
+                return draw(st.one_of(map(self._strategy_for_schema, schema.one_of)))
+            else:
+                return draw(self._strategy_for_schema(schema))
 
     @instance_composite
     def parameter_lists(self, draw, parameters):
