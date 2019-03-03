@@ -1,5 +1,6 @@
 # std
 import base64
+import sys
 from collections import namedtuple
 from datetime import datetime
 from functools import partial
@@ -140,6 +141,9 @@ class Strategies:
 
         :return: Hypothesis strategy that generates values for schema.
         """
+        if schema.format in self.format_strategies:
+            return self.format_strategies[schema.format](schema)
+
         return {
             SchemaType.ANY: self.objects,
             SchemaType.INTEGER: partial(self.numbers, st_base=st.integers),
@@ -165,30 +169,30 @@ class Strategies:
         return is_multiple_of(multiple_of)
 
     @staticmethod
-    def minimum(value, exclusive):
+    def minimum(value, exclusive, is_int):
         """
 
         :param value:
         :param exclusive:
-        :param data_type:
+        :param is_int:
 
         :return:
         """
-        epsilon = 1
+        epsilon = 1 if is_int else sys.float_info.epsilon
         make_exclusive = epsilon if exclusive else 0
         return (value or 0) + make_exclusive
 
     @staticmethod
-    def maximum(value, exclusive):
+    def maximum(value, exclusive, is_int):
         """
 
         :param value:
         :param exclusive:
-        :param data_type:
+        :param is_int:
 
         :return:
         """
-        epsilon = 1
+        epsilon = 1 if is_int else sys.float_info.epsilon
         make_exclusive = epsilon if exclusive else 0
         return None if value is None else (value - make_exclusive)
 
@@ -205,15 +209,12 @@ class Strategies:
         :return: A float or int depending on base which conforms to the
                  given schema.
         """
-        if schema.format in self.format_strategies:
-            numbers = self.format_strategies[schema.format](schema)
-        else:
-            numbers = st_base(
-                self.minimum(schema.minimum, schema.exclusive_minimum),
-                self.maximum(schema.maximum, schema.exclusive_maximum),
-            )
-            if schema.multiple_of:
-                numbers = numbers.filter(self.is_multiple_of(schema.multiple_of))
+        numbers = st_base(
+            self.minimum(schema.minimum, schema.exclusive_minimum, st_base == st.integers),
+            self.maximum(schema.maximum, schema.exclusive_maximum, st_base == st.integers),
+        )
+        if schema.multiple_of:
+            numbers = numbers.filter(self.is_multiple_of(schema.multiple_of))
 
         return draw(numbers)
 
@@ -240,7 +241,6 @@ class Strategies:
                 "date-time": st.datetimes().map(datetime.isoformat),
                 "binary": st.binary(**min_max),
                 "byte": st.binary(**min_max).map(base64.encodebytes),
-                **self.format_strategies,
             }[schema.format]
         elif schema.enum:
             strategy = st.sampled_from(schema.enum)
@@ -282,16 +282,13 @@ class Strategies:
 
         :return: Dictionary where the keys conform to the schema.
         """
-        if schema.format in self.format_strategies:
-            result = draw(self.format_strategies[schema.format](schema))
-        else:
-            result = {}
-            for schema in schema.all_of or [schema]:
-                required = set(schema.required)
-                optional = draw(st_filtered_containers(set(schema.properties) - required))
-                properties = keyfilter(lambda x: x in required | optional, schema.properties)
-                mapping = valmap(self._strategy_for_schema, properties)
-                result = {**result, **draw(st.fixed_dictionaries(mapping))}
+        result = {}
+        for schema in schema.all_of or [schema]:
+            required = set(schema.required)
+            optional = draw(st_filtered_containers(set(schema.properties) - required))
+            properties = keyfilter(lambda x: x in required | optional, schema.properties)
+            mapping = valmap(self._strategy_for_schema, properties)
+            result = {**result, **draw(st.fixed_dictionaries(mapping))}
 
             # TODO: Additional parameters
 
