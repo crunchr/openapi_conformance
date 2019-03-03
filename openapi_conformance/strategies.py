@@ -150,20 +150,22 @@ class Strategies:
             SchemaType.OBJECT: self.objects,
         }[schema.type](schema=schema)
 
-    @classmethod
-    def is_multiple_of(cls, multiple_of):
+    @staticmethod
+    def is_multiple_of(multiple_of):
         """
 
         :param multiple_of:
         :return:
         """
+
         @curry
         def is_multiple_of(n, x):
             return not (x % n)
+
         return is_multiple_of(multiple_of)
 
-    @classmethod
-    def minimum(cls, value, exclusive):
+    @staticmethod
+    def minimum(value, exclusive):
         """
 
         :param value:
@@ -176,8 +178,8 @@ class Strategies:
         make_exclusive = epsilon if exclusive else 0
         return (value or 0) + make_exclusive
 
-    @classmethod
-    def maximum(cls, value, exclusive):
+    @staticmethod
+    def maximum(value, exclusive):
         """
 
         :param value:
