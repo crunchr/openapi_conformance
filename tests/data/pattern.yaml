@@ -1,0 +1,21 @@
+openapi: 3.0.0
+info:
+  title: Link Example
+  version: 1.0.0
+paths:
+  /something:
+    get:
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: ^The.*Spain$
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: object

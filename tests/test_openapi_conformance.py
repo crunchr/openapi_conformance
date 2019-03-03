@@ -23,9 +23,13 @@ def always_valid(x):
     return True
 
 
+format_strategies = {"custom": st.integers()}
+
+
 format_unmarshallers = {
     "uri": Format(urlparse, always_valid),
     "uriref": Format(urlparse, always_valid),
+    "custom": Format(int, lambda x: isinstance(x, int)),
 }
 
 
@@ -33,10 +37,14 @@ conformances = [
     (
         entry.name,
         OpenAPIConformance(
-            DIR / "data" / entry.name, None, format_unmarshallers=format_unmarshallers
+            directory / entry.name,
+            None,
+            format_unmarshallers=format_unmarshallers,
+            format_strategies=format_strategies,
         ),
     )
-    for entry in os.scandir(DIR / "data")
+    for directory in [DIR / "data"]
+    for entry in os.scandir(directory)
 ]
 
 

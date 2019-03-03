@@ -1,6 +1,5 @@
 # std
 import base64
-import sys
 from collections import namedtuple
 from datetime import datetime
 from functools import partial
@@ -130,7 +129,32 @@ class Strategies:
                                   These strategies take the schema being
                                   generated as a parameter.
         """
-        self.format_strategies = format_strategies or {}
+        self._format_strategies = format_strategies or {}
+
+    def format_strategies(self, schema):
+        """
+
+        :param schema:
+
+        :return:
+        """
+        min_max_size = dict(min_size=schema.min_length or 0, max_size=schema.max_length)
+        return {
+            **self._format_strategies,
+            "email": st.emails(),
+            "uuid": st.uuids().map(str),
+            "uri": st_uris(),
+            "uriref": st_uris(),
+            "hostname": st_hostnames(),
+            "date": st.dates().map(str),
+            "date-time": st.datetimes().map(datetime.isoformat),
+            "binary": st.binary(**min_max_size),
+            "byte": st.binary(**min_max_size).map(base64.encodebytes),
+            "int32": self.numbers(st_base=st.integers, schema=schema),
+            "int64": self.numbers(st_base=st.integers, schema=schema),
+            "float": self.numbers(st_base=st.floats, schema=schema),
+            "double": self.numbers(st_base=st.floats, schema=schema),
+        }
 
     def _strategy_for_schema(self, schema):
         """
@@ -141,18 +165,25 @@ class Strategies:
 
         :return: Hypothesis strategy that generates values for schema.
         """
-        if schema.format in self.format_strategies:
-            return self.format_strategies[schema.format](schema)
+        format_strategies = self.format_strategies(schema)
 
-        return {
-            SchemaType.ANY: self.objects,
-            SchemaType.INTEGER: partial(self.numbers, st_base=st.integers),
-            SchemaType.NUMBER: partial(self.numbers, st_base=st.floats),
-            SchemaType.STRING: self.strings,
-            SchemaType.BOOLEAN: lambda *_, **__: st.booleans(),
-            SchemaType.ARRAY: self.arrays,
-            SchemaType.OBJECT: self.objects,
-        }[schema.type](schema=schema)
+        if schema.format and schema.format not in format_strategies:
+            raise ValueError(f"unsupported format {schema.format}")
+
+        if schema.format in format_strategies:
+            result = format_strategies[schema.format]
+        else:
+            result = {
+                SchemaType.ANY: self.objects,
+                SchemaType.INTEGER: partial(self.numbers, st_base=st.integers),
+                SchemaType.NUMBER: partial(self.numbers, st_base=st.floats),
+                SchemaType.STRING: self.strings,
+                SchemaType.BOOLEAN: lambda *_, **__: st.booleans(),
+                SchemaType.ARRAY: self.arrays,
+                SchemaType.OBJECT: self.objects,
+            }[schema.type](schema=schema)
+
+        return result
 
     @staticmethod
     def is_multiple_of(multiple_of):
@@ -169,7 +200,7 @@ class Strategies:
         return is_multiple_of(multiple_of)
 
     @staticmethod
-    def minimum(value, exclusive, is_int):
+    def minimum(value, exclusive):
         """
 
         :param value:
@@ -178,12 +209,10 @@ class Strategies:
 
         :return:
         """
-        epsilon = 1 if is_int else sys.float_info.epsilon
-        make_exclusive = epsilon if exclusive else 0
-        return (value or 0) + make_exclusive
+        return (value or 0) + exclusive
 
     @staticmethod
-    def maximum(value, exclusive, is_int):
+    def maximum(value, exclusive):
         """
 
         :param value:
@@ -192,9 +221,7 @@ class Strategies:
 
         :return:
         """
-        epsilon = 1 if is_int else sys.float_info.epsilon
-        make_exclusive = epsilon if exclusive else 0
-        return None if value is None else (value - make_exclusive)
+        return None if value is None else (value - exclusive)
 
     @instance_composite
     def numbers(self, draw, st_base, schema):
@@ -210,8 +237,11 @@ class Strategies:
                  given schema.
         """
         numbers = st_base(
-            self.minimum(schema.minimum, schema.exclusive_minimum, st_base == st.integers),
-            self.maximum(schema.maximum, schema.exclusive_maximum, st_base == st.integers),
+            self.minimum(schema.minimum, schema.exclusive_minimum),
+            self.maximum(schema.maximum, schema.exclusive_maximum),
+            **dict(exclude_min=schema.exclusive_minimum, exclude_max=schema.exclusive_maximum)
+            if st_base == st.floats
+            else {},
         )
         if schema.multiple_of:
             numbers = numbers.filter(self.is_multiple_of(schema.multiple_of))
@@ -230,19 +260,7 @@ class Strategies:
         """
         min_max = dict(min_size=schema.min_length or 0, max_size=schema.max_length)
 
-        if schema.format:
-            strategy = {
-                "email": st.emails(),
-                "uuid": st.uuids().map(str),
-                "uri": st_uris(),
-                "uriref": st_uris(),
-                "hostname": st_hostnames(),
-                "date": st.dates().map(str),
-                "date-time": st.datetimes().map(datetime.isoformat),
-                "binary": st.binary(**min_max),
-                "byte": st.binary(**min_max).map(base64.encodebytes),
-            }[schema.format]
-        elif schema.enum:
+        if schema.enum:
             strategy = st.sampled_from(schema.enum)
         elif schema.pattern:
             strategy = st.from_regex(schema.pattern)

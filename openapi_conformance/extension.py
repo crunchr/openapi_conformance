@@ -17,7 +17,7 @@ from urllib.parse import unquote_plus
 from openapi_core import create_spec as _create_spec
 from openapi_core.schema.media_types.models import MEDIA_TYPE_DESERIALIZERS
 from openapi_core.schema.schemas.enums import SchemaFormat, SchemaType
-from openapi_core.schema.schemas.exceptions import InvalidSchemaValue, OpenAPISchemaError
+from openapi_core.schema.schemas.exceptions import OpenAPISchemaError
 from openapi_core.schema.schemas.models import Format, Schema
 from openapi_core.schema.specs.models import Spec
 from openapi_core.validation.response.validators import ResponseValidator  # noqa
@@ -234,24 +234,11 @@ def patch_schema_validate():
     and we should just let the custom format determine if the value
     is valid or not.
     """
+    original = copy.deepcopy(Schema.validate)
 
     def validate(self, value, custom_formatters=None):
-        if value is None:
-            if not self.nullable:
-                raise InvalidSchemaValue(
-                    "Null value for non-nullable schema of type {type}", value, self.type
-                )
-            return
-
-        # type validation
-        type_validator_callable = self.TYPE_VALIDATOR_CALLABLE_GETTER[self.type]
-        if not type_validator_callable(value) and self.format not in custom_formatters:
-            raise InvalidSchemaValue("Value {value} not valid type {type}", value, self.type.value)
-
-        # structure validation
-        validator_mapping = self.get_validator_mapping()
-        validator_callable = validator_mapping[self.type]
-        validator_callable(value, custom_formatters=custom_formatters)
+        is_custom_formatted = self.format in (custom_formatters or {})
+        return value if is_custom_formatted else original(self, value, custom_formatters)
 
     target = "openapi_core.schema.schemas.models.Schema.validate"
     with patch(target, validate):
