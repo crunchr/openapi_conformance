@@ -8,24 +8,19 @@ itself.
 import contextlib
 import copy
 from collections import namedtuple
-from functools import lru_cache
 from pathlib import Path
 from typing import IO
 from unittest.mock import patch
 from urllib.parse import unquote_plus
 
 # 3rd party
-from jsonschema.validators import RefResolver
+from openapi_core import create_spec as _create_spec
 from openapi_core.schema.media_types.models import MEDIA_TYPE_DESERIALIZERS
 from openapi_core.schema.schemas.enums import SchemaFormat, SchemaType
 from openapi_core.schema.schemas.exceptions import InvalidSchemaValue, OpenAPISchemaError
 from openapi_core.schema.schemas.models import Format, Schema
-from openapi_core.schema.schemas.registries import SchemaRegistry
-from openapi_core.schema.specs.factories import SpecFactory
 from openapi_core.schema.specs.models import Spec
 from openapi_core.validation.response.validators import ResponseValidator  # noqa
-from openapi_spec_validator import default_handlers
-from openapi_spec_validator.validators import Dereferencer
 from yaml import safe_load
 
 
@@ -73,6 +68,25 @@ def _schema_dict(schema):  # noqa
         **({"min_properties": schema.min_properties} if schema.min_properties is not None else {}),
         **({"max_properties": schema.max_properties} if schema.max_properties is not None else {}),
     }
+
+
+@contextlib.contextmanager
+def strict_bool():
+    """
+    """
+
+    def strict_to_bool(x):
+        if not isinstance(x, bool):
+            raise OpenAPISchemaError(f"Expected bool but got {type(x)} -- {x}")
+        return x
+
+    original = Schema.DEFAULT_CAST_CALLABLE_GETTER
+    patched = dict(original)
+    patched[SchemaType.BOOLEAN] = strict_to_bool
+
+    target = "openapi_core.schema.schemas.models.Schema.DEFAULT_CAST_CALLABLE_GETTER"
+    with patch(target, patched):
+        yield
 
 
 @contextlib.contextmanager
@@ -134,54 +148,6 @@ def record_unmarshal():
 CREATE_SPEC_SUPPORTED_TYPES = Path, str, IO, dict, Spec
 
 
-class ObjectDefaultTypeSchemaRegistry(SchemaRegistry):
-    """
-
-    """
-
-    def create(self, schema_spec):
-        """
-
-        :param schema_spec:
-
-        :return:
-        """
-        schema_deref = self.dereferencer.dereference(schema_spec)
-        schema_type = schema_deref.get("type", None)
-        schema = super().create(schema_spec)
-        if schema_type is None:
-            schema.type = SchemaType.OBJECT
-        return schema
-
-
-class ObjectDefaultTypeSpecFactory(SpecFactory):
-    """
-
-    """
-
-    @property
-    @lru_cache()
-    def schemas_registry(self):
-        """
-        :return:
-        """
-        return ObjectDefaultTypeSchemaRegistry(self.dereferencer)
-
-
-def _create_spec(spec_dict, spec_url=""):
-    """
-
-    :param spec_dict:
-    :param spec_url:
-
-    :return:
-    """
-    spec_resolver = RefResolver(spec_url, spec_dict, handlers=default_handlers)
-    dereferencer = Dereferencer(spec_resolver)
-    spec_factory = ObjectDefaultTypeSpecFactory(dereferencer)
-    return spec_factory.create(spec_dict, spec_url=spec_url)
-
-
 def create_spec(specification):
     """
     Helper wrapper around openapi_core.create_spec to enable creation of
@@ -196,7 +162,8 @@ def create_spec(specification):
         with open(specification) as f:
             specification = _create_spec(safe_load(f))
     elif hasattr(specification, "read"):
-        specification = _create_spec(safe_load(specification))
+        with open(specification) as f:
+            specification = _create_spec(safe_load(f))
     elif isinstance(specification, dict):
         specification = _create_spec(specification)
     elif not isinstance(specification, Spec):
@@ -241,14 +208,15 @@ def validate(validator, *args):
     """
     with record_unmarshal() as log:
         with strict_str():
-            with patch_schema_validate():
-                with patch_media_type_deserializers():
-                    result = validator.validate(*args)
-                    try:
-                        result.raise_for_errors()
-                    except Exception as e:
-                        e.unmarshal_log = log
-                        raise e
+            with strict_bool():
+                with patch_schema_validate():
+                    with patch_media_type_deserializers():
+                        result = validator.validate(*args)
+                        try:
+                            result.raise_for_errors()
+                        except Exception as e:
+                            e.unmarshal_log = log
+                            raise e
 
 
 @contextlib.contextmanager
@@ -301,10 +269,7 @@ def patch_media_type_deserializers():
     def urldecode(qs):
         return dict(map(unquote_plus, x.split("=")) for x in qs.decode().split("&"))
 
-    patched = {
-        **MEDIA_TYPE_DESERIALIZERS,
-        "application/x-www-form-urlencoded": urldecode,
-    }
+    patched = {**MEDIA_TYPE_DESERIALIZERS, "application/x-www-form-urlencoded": urldecode}
 
     target = "openapi_core.schema.media_types.models.MEDIA_TYPE_DESERIALIZERS"
     with patch(target, patched):
