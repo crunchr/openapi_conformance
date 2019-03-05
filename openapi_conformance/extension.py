@@ -8,8 +8,6 @@ itself.
 import contextlib
 import copy
 from collections import namedtuple
-from pathlib import Path
-from typing import IO
 from unittest.mock import patch
 from urllib.parse import unquote_plus
 
@@ -19,9 +17,8 @@ from openapi_core.schema.media_types.models import MEDIA_TYPE_DESERIALIZERS
 from openapi_core.schema.schemas.enums import SchemaFormat, SchemaType
 from openapi_core.schema.schemas.exceptions import OpenAPISchemaError
 from openapi_core.schema.schemas.models import Format, Schema
-from openapi_core.schema.specs.models import Spec
 from openapi_core.validation.response.validators import ResponseValidator  # noqa
-from yaml import safe_load
+from ruamel.yaml import round_trip_load
 
 
 def _schema_dict(schema):  # noqa
@@ -145,30 +142,17 @@ def record_unmarshal():
         yield log
 
 
-CREATE_SPEC_SUPPORTED_TYPES = Path, str, IO, dict, Spec
-
-
-def create_spec(specification):
+def create_spec(specification_path):
     """
     Helper wrapper around openapi_core.create_spec to enable creation of
     specs from other types
 
-    :param specification: Source for the specificaion, see
-                          ``CREATE_SPEC_SUPPORTED_TYPES``
+    :param specification_path: Path to the specification to load.
 
     :return: The created openapi_core Spec object.
     """
-    if isinstance(specification, (Path, str)):
-        with open(specification) as f:
-            specification = _create_spec(safe_load(f))
-    elif hasattr(specification, "read"):
-        with open(specification) as f:
-            specification = _create_spec(safe_load(f))
-    elif isinstance(specification, dict):
-        specification = _create_spec(specification)
-    elif not isinstance(specification, Spec):
-        raise TypeError(f"Expected one of {CREATE_SPEC_SUPPORTED_TYPES}, got {type(specification)}")
-
+    with open(specification_path) as f:
+        specification = _create_spec(round_trip_load(f))
     return specification
 
 
