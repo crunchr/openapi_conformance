@@ -13,14 +13,14 @@ sudo apt install libreadline-gplv2-dev libncursesw5-dev libssl-dev \
                  libbz2-dev
 
 # install python 3.6 and set as local
-pyenv install 3.6.8
-pyenv local 3.6.8
+#pyenv install 3.6.8
+#pyenv local 3.6.8
 
 # install poetry
-curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
+#curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
 
 # install python dependencies
-poetry install
+#poetry install
 
 # build so that we can generate a setup.py for installing as a development package
 poetry build

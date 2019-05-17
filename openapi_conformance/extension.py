@@ -152,7 +152,7 @@ def create_spec(specification_path):
     :return: The created openapi_core Spec object.
     """
     with open(specification_path) as f:
-        specification = _create_spec(round_trip_load(f))
+        specification = _create_spec(round_trip_load(f), f"file://{specification_path}")
     return specification
 
 

@@ -141,7 +141,6 @@ class Strategies:
         min_max_size = dict(min_size=schema.min_length or 0, max_size=schema.max_length)
         return {
             **self._format_strategies,
-            "email": st.emails(),
             "uuid": st.uuids().map(str),
             "uri": st_uris(),
             "uriref": st_uris(),
